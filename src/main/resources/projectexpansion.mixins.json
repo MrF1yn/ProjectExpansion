@@ -13,7 +13,8 @@
 		"AlchemicalCollectionMixin",
 		"AlchemicalCollectionToggleMixin",
 		"EnchantmentProcessorMixin",
-		"PhilosophersStoneMixin"
+		"PhilosophersStoneMixin",
+		"PlayerListMixin"
 	],
 	"injectors": {
 		"defaultRequire": 1

@@ -19,8 +19,8 @@ import java.util.UUID;
 public class PowerFlowerCollector {
     private static final Map<UUID, BigInteger> stored = new HashMap<>();
     private static int tick = 0;
-    public static void add(ServerPlayer player, BigInteger amount) {
-        UUID uuid = player.getUUID();
+    public static void add(UUID uuid, BigInteger amount) {
+//        UUID uuid = player.getUUID();
         stored.put(uuid, stored.containsKey(uuid) ? stored.get(uuid).add(amount) : amount);
     }
     @SubscribeEvent

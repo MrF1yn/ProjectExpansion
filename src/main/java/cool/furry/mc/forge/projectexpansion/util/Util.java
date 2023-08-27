@@ -1,31 +1,41 @@
 package cool.furry.mc.forge.projectexpansion.util;
 
+import com.google.common.base.Preconditions;
+import moze_intel.projecte.PECore;
 import moze_intel.projecte.api.ItemInfo;
 import moze_intel.projecte.api.capabilities.IKnowledgeProvider;
 import moze_intel.projecte.api.capabilities.PECapabilities;
 import moze_intel.projecte.api.capabilities.block_entity.IEmcStorage;
 import moze_intel.projecte.api.event.PlayerAttemptLearnEvent;
 import moze_intel.projecte.emc.nbt.NBTManager;
+import moze_intel.projecte.impl.capability.KnowledgeImpl;
 import net.minecraft.core.BlockPos;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.nbt.NbtIo;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.storage.LevelResource;
 import net.minecraftforge.common.MinecraftForge;
+import net.minecraftforge.fml.util.thread.SidedThreadGroups;
 import net.minecraftforge.items.ItemHandlerHelper;
 import net.minecraftforge.server.ServerLifecycleHooks;
 
 import javax.annotation.Nullable;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+import static cool.furry.mc.forge.projectexpansion.util.Util.getOfflineKnowledgeProvider;
 import static moze_intel.projecte.api.capabilities.block_entity.IEmcStorage.EmcAction;
 
 @SuppressWarnings("unused")
@@ -33,6 +43,8 @@ public class Util {
     // yes I know this exists in net.minecraft.util.Util but having to either type out that fully or
     // this package to import both is really annoying
     public static final UUID DUMMY_UUID = new UUID(0L, 0L);
+    public static Map<UUID, IKnowledgeProvider> offlineKnowledgeProviders = new HashMap<>();
+    public static Map<UUID, CompoundTag> offlinePlayerDataCache = new HashMap<>();
 
     public static @Nullable
     ServerPlayer getPlayer(UUID uuid) {
@@ -117,7 +129,7 @@ public class Util {
     public static @Nullable IKnowledgeProvider getKnowledgeProvider(UUID uuid) {
         @Nullable ServerPlayer player = getPlayer(uuid);
         if(player == null) {
-            return null;
+            return getOfflineKnowledgeProvider(uuid);
         }
         return getKnowledgeProvider(player);
     }
@@ -128,6 +140,56 @@ public class Util {
         } catch(NullPointerException ignore) {
             return null;
         }
+    }
+
+    public static void saveOfflineKnowledgeProvider(UUID uuid) throws IOException {
+        CompoundTag knowledgeProvider = offlineKnowledgeProviders.get(uuid).serializeNBT();
+        CompoundTag playerDat = offlinePlayerDataCache.get(uuid);
+        playerDat.getCompound("ForgeCaps").put(KnowledgeImpl.Provider.NAME.toString(), knowledgeProvider);
+        NbtIo.writeCompressed(playerDat,
+                new File(ServerLifecycleHooks.getCurrentServer().getWorldPath(LevelResource.PLAYER_DATA_DIR).toFile(), uuid.toString() + ".dat"));
+        PECore.LOGGER.info("Saved offline knowledge provider for " + uuid.toString());
+    }
+
+
+    public static @Nullable IKnowledgeProvider getOfflineKnowledgeProvider(UUID uuid) {
+        if (offlineKnowledgeProviders.containsKey(uuid)) {
+            return offlineKnowledgeProviders.get(uuid);
+        }
+//        Preconditions.checkState(Thread.currentThread().getThreadGroup() == SidedThreadGroups.SERVER, "CRITICAL: Trying to read filesystem on client!!");
+        if(Thread.currentThread().getThreadGroup() == SidedThreadGroups.CLIENT)return null;
+        MinecraftServer server = ServerLifecycleHooks.getCurrentServer();
+        File playerData = server.getWorldPath(LevelResource.PLAYER_DATA_DIR).toFile();
+        if (playerData.exists()) {
+            File player = new File(playerData, uuid.toString() + ".dat");
+            if (player.exists() && player.isFile()) {
+                try {
+                    FileInputStream in = new FileInputStream(player);
+                    IKnowledgeProvider provider = KnowledgeImpl.getDefault();
+                    try {
+                        CompoundTag playerDat = NbtIo.readCompressed(in);
+                        CompoundTag knowledgeProvider = playerDat.getCompound("ForgeCaps").getCompound(KnowledgeImpl.Provider.NAME.toString());
+                        provider.deserializeNBT(knowledgeProvider);
+                        PECore.debugLog("Reading offline data for UUID: {}", new Object[]{uuid});
+                        offlineKnowledgeProviders.put(uuid, provider);
+                        offlinePlayerDataCache.put(uuid, playerDat);
+                    } catch (Throwable var10) {
+                        try {
+                            in.close();
+                        } catch (Throwable var9) {
+                            var10.addSuppressed(var9);
+                        }
+
+                        throw var10;
+                    }
+                    in.close();
+                    return provider;
+                } catch (IOException var11) {
+                    PECore.LOGGER.warn("Failed to read offline data for API calls for UUID: {}", uuid);
+                }
+            }
+        }
+        return null;
     }
 
     public static BigInteger spreadEMC(BigInteger emc, List<IEmcStorage> storageList) {

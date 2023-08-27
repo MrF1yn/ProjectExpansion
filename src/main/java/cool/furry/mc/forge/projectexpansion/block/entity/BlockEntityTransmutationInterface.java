@@ -98,7 +98,10 @@ public class BlockEntityTransmutationInterface extends BlockEntityNBTFilterable 
     @Nonnull
     @Override
     public ItemStack insertItem(int slot, @Nonnull ItemStack stack, boolean simulate) {
-        if (slot != 0 || owner == null || !isItemValid(slot, stack) || stack.isEmpty() || Util.getPlayer(owner) == null) return stack;
+        if (slot != 0 || owner == null || !isItemValid(slot, stack) || stack.isEmpty()
+//                || Util.getPlayer(owner) == null
+        )
+            return stack;
 
         ItemInfo info = ItemInfo.fromStack(stack);
 
@@ -116,18 +119,23 @@ public class BlockEntityTransmutationInterface extends BlockEntityNBTFilterable 
         provider.setEmc(provider.getEmc().add(totalEmcValue));
 
         ServerPlayer player = Util.getPlayer(level, owner);
+        //INSERT MRFLYN
+        boolean addknowledge = provider.addKnowledge(stack);
         if (player != null) {
-            if (provider.addKnowledge(stack)) provider.syncKnowledgeChange(player, NBTManager.getPersistentInfo(info), true);
+            if (addknowledge)
+                provider.syncKnowledgeChange(player, NBTManager.getPersistentInfo(info), true);
             provider.syncEmc(player);
         }
-
+        //END MRFLYN
         return ItemStack.EMPTY;
     }
 
     @Nonnull
     @Override
     public ItemStack extractItem(int slot, int amount, boolean simulate) {
-        if (slot <= 0 || owner == null || info.length < slot || Util.getPlayer(owner) == null) return ItemStack.EMPTY;
+        if (slot <= 0 || owner == null || info.length < slot
+//                || Util.getPlayer(owner) == null
+        ) return ItemStack.EMPTY;
         fetchKnowledge();
 
         amount = Math.min(amount, getMaxCount(slot - 1));

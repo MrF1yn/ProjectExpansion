@@ -47,7 +47,7 @@ public class BlockEntityPowerFlower extends BlockEntityOwnable {
         ServerPlayer player = Util.getPlayer(level, owner);
 
         if (player != null) {
-            PowerFlowerCollector.add(player, emc.add(res));
+            PowerFlowerCollector.add(owner, emc.add(res));
             emc = BigInteger.ZERO;
             Util.markDirty(this);
         } else {

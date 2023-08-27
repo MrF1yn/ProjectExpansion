@@ -18,6 +18,7 @@ import net.minecraft.world.item.crafting.RecipeType;
 import net.minecraft.world.level.Level;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.api.distmarker.OnlyIn;
+import net.minecraftforge.fml.util.thread.EffectiveSide;
 
 import javax.annotation.Nullable;
 import java.math.BigInteger;
@@ -40,6 +41,8 @@ public class ItemInfiniteFuel extends Item {
 
     @Override
     public int getBurnTime(ItemStack stack, @Nullable RecipeType<?> recipeType) {
+
+        if(EffectiveSide.get().isClient())return 0;
         @Nullable UUID owner = stack.getTag() == null ? null : stack.getTag().getUUID(TagNames.OWNER);
         @Nullable IKnowledgeProvider provider = owner == null ? null : Util.getKnowledgeProvider(owner);
         if (owner == null || provider == null) return 0;

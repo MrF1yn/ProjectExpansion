@@ -70,6 +70,7 @@ public class BlockEntityAdvancedAlchemicalChest extends BlockEntityOwnable imple
 	}
 
 	public @Nullable IItemHandler getBag() {
+		//TODO POTENTIAL FIX
 		@Nullable ServerPlayer player = Util.getPlayer(level, owner);
 		if(player == null) {
 			return null;

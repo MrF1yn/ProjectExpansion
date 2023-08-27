@@ -4,6 +4,7 @@ import cool.furry.mc.forge.projectexpansion.block.BlockEMCLink;
 import cool.furry.mc.forge.projectexpansion.config.Config;
 import cool.furry.mc.forge.projectexpansion.registries.BlockEntityTypes;
 import cool.furry.mc.forge.projectexpansion.util.*;
+import moze_intel.projecte.PECore;
 import moze_intel.projecte.api.ItemInfo;
 import moze_intel.projecte.api.ProjectEAPI;
 import moze_intel.projecte.api.capabilities.IKnowledgeProvider;
@@ -17,6 +18,7 @@ import net.minecraft.nbt.Tag;
 import net.minecraft.network.chat.TextComponent;
 import net.minecraft.network.chat.TranslatableComponent;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.players.PlayerList;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.InteractionResult;
 import net.minecraft.world.entity.LivingEntity;
@@ -101,12 +103,13 @@ public class BlockEntityEMCLink extends BlockEntityNBTFilterable implements IEmc
     public void tickServer(Level level, BlockPos pos, BlockState state, BlockEntityEMCLink blockEntity) {
         // due to the nature of per second this block follows, using the config value isn't really possible
         if (level.isClientSide || (level.getGameTime() % 20L) != Util.mod(hashCode(), 20)) return;
+//        PECore.LOGGER.info("EMC TICK SERVER");
         resetLimits();
+//        PECore.LOGGER.info("EMC TICK SERVER 1");
         if (emc.equals(BigInteger.ZERO)) return;
         ServerPlayer player = Util.getPlayer(level, owner);
         @Nullable IKnowledgeProvider provider = Util.getKnowledgeProvider(owner);
         if (provider == null) return;
-
         BigInteger toAdd = getMatter() == Matter.FINAL ? emc : remainingEMC.min(emc);
         provider.setEmc(provider.getEmc().add(toAdd));
         emc = emc.subtract(toAdd).max(BigInteger.ZERO);
@@ -208,8 +211,11 @@ public class BlockEntityEMCLink extends BlockEntityNBTFilterable implements IEmc
     @Nonnull
     @Override
     public ItemStack insertItem(int slot, @Nonnull ItemStack stack, boolean simulate) {
+        PECore.LOGGER.info("INSERT ITEM");
         boolean isFinal = getMatter() == Matter.FINAL;
-        if (slot == 0 || (!isFinal && remainingImport <= 0) || owner == null || stack.isEmpty() || !isItemValid(slot, stack) || Util.getPlayer(owner) == null) return stack;
+        if (slot == 0 || (!isFinal && remainingImport <= 0) || owner == null || stack.isEmpty() || !isItemValid(slot, stack)
+//                || Util.getPlayer(owner) == null
+        ) return stack;
 
         int count = stack.getCount();
         stack = ItemHandlerHelper.copyStackWithSize(stack, 1);
@@ -227,11 +233,14 @@ public class BlockEntityEMCLink extends BlockEntityNBTFilterable implements IEmc
             BigInteger totalValue = BigInteger.valueOf(itemValue).multiply(BigInteger.valueOf(insertCount));
             provider.setEmc(provider.getEmc().add(totalValue));
             ServerPlayer player = Util.getPlayer(owner);
+            //INSERT MYFLYN
+            boolean addKnowledge = provider.addKnowledge(stack);
             if (player != null) {
-                if (provider.addKnowledge(stack))
+                if (addKnowledge)
                     provider.syncKnowledgeChange(player, NBTManager.getPersistentInfo(info), true);
                 provider.syncEmc(player);
             }
+            //END MRFLYN
             if(!isFinal) remainingImport -= insertCount;
             Util.markDirty(this);
         }
@@ -250,7 +259,9 @@ public class BlockEntityEMCLink extends BlockEntityNBTFilterable implements IEmc
 
     public ItemStack extractItemInternal(int slot, int amount, boolean simulate, boolean limit) {
         boolean isFinal = getMatter() == Matter.FINAL;
-        if (slot != 0 || (!isFinal && remainingExport <= 0) || owner == null || itemStack.isEmpty() || Util.getPlayer(owner) == null) return ItemStack.EMPTY;
+        if (slot != 0 || (!isFinal && remainingExport <= 0) || owner == null || itemStack.isEmpty()
+//                || Util.getPlayer(owner) == null
+        ) return ItemStack.EMPTY;
 
         BigInteger itemValue = BigInteger.valueOf(ProjectEAPI.getEMCProxy().getValue(itemStack));
         if(itemValue.equals(BigInteger.ZERO)) return ItemStack.EMPTY;
